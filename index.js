@@ -1,16 +1,16 @@
 const express = require('express');
-const fileUpload = require('express-fileupload');
+const fileUpload = require("express-fileupload");
 const app = express();
 const cors = require('cors');
 require('dotenv').config();
 const objectId = require('mongodb').ObjectId;
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 const port = process.env.PORT || 5099;
 
-
+app.use(fileUpload());
 app.use(cors());
 app.use(express.json());
-app.use(fileUpload());
+
 
 
 
@@ -22,13 +22,53 @@ async function run() {
         await client.connect();
         const database = client.db('travelex');
         const usersCollection = database.collection('users');
+        const blogCollection = database.collection('blogs');
 
 
         //Add Blog 
         app.post('/blogs', async (req, res) => {
-            console.log('body', req.body);
-            console.log(req.files)
-            res.json('done');
+            const blog = req.body;
+            blog['status'] = 'Pending';
+            const result = await blogCollection.insertOne(blog);
+            res.json(result);
+        });
+
+
+        //Get Blogs
+        app.get('/blogs', async (req, res) => {
+            const cursor = blogCollection.find({});
+            const blogs = await cursor.toArray();
+            res.json(blogs);
+        });
+
+        //Get SIngle Blog
+        app.get('/blog/:id', async (req, res) => {
+            const id = req.params;
+            const query = { _id: ObjectId(id) }
+            const result = await blogCollection.findOne(query);
+            res.json(result);
+        });
+
+        //Delete Blog
+        app.delete('/blog/:id', async (req, res) => {
+            const id = req.params;
+            const query = { _id: ObjectId(id) };
+            const result = await blogCollection.deleteOne(query);
+            res.json(result);
+        });
+
+        //Update Blog Status
+        app.put('/blog/status/:id', async (req, res) => {
+            const id = req.params.id;
+            const data = req.body.status;
+            const filter = { _id: ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    status: data
+                }
+            };
+            const result = await blogCollection.updateOne(filter, updateDoc);
+            res.send(result);
         })
 
 
@@ -40,13 +80,12 @@ async function run() {
             const user = {
                 name,
                 email,
-                isAdmin: false
             }
             const result = await usersCollection.insertOne(user);
             res.json(result);
         });
 
-
+        //Put User if Exist or Not
         app.put('/users', async (req, res) => {
             const user = { ...req.body, isAdmin: false };
             const filter = { email: user.email };
@@ -55,7 +94,25 @@ async function run() {
             const result = await usersCollection.updateOne(filter, updateDoc, options);
             res.json(result);
         });
+        // Admin check
+        app.get('/users/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email };
+            const user = await usersCollection.findOne(query);
+            let isAdmin = false;
+            if (user?.role === 'admin') {
+                isAdmin = true;
+            }
+            res.json({ admin: isAdmin });
+        });
 
+        app.put('/users/admin', async (req, res) => {
+            const user = req.body;
+            const filter = { email: user.email };
+            const updateDoc = { $set: { role: 'admin' } };
+            const result = await usersCollection.updateOne(filter, updateDoc);
+            res.json(result);
+        });
 
 
     }
