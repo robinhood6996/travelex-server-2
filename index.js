@@ -98,8 +98,19 @@ async function run() {
             };
             const result = await blogCollection.updateOne(filter, updateDoc);
             res.send(result);
-        })
+        });
 
+
+        app.put('/blog/update/:id', async (req, res) => {
+            const id = req.params.id;
+            const data = req.body;
+            const filter = { _id: ObjectId(id) };
+            const updateDoc = {
+                $set: data
+            };
+            const result = await blogCollection.updateOne(filter, updateDoc);
+            res.send(result);
+        });
 
 
         //Users API
