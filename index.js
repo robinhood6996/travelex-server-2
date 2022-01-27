@@ -5,6 +5,7 @@ const cors = require('cors');
 require('dotenv').config();
 const objectId = require('mongodb').ObjectId;
 const { MongoClient, ObjectId } = require('mongodb');
+const res = require('express/lib/response');
 const port = process.env.PORT || 5099;
 
 app.use(fileUpload());
@@ -32,13 +33,41 @@ async function run() {
             const result = await blogCollection.insertOne(blog);
             res.json(result);
         });
+        //Add Blog admin
+        app.post('/blogs/admin', async (req, res) => {
+            const blog = req.body;
+            blog['status'] = 'Approved';
+            const result = await blogCollection.insertOne(blog);
+            res.json(result);
+        });
 
 
-        //Get Blogs
+        //Get Blogs for client
         app.get('/blogs', async (req, res) => {
             const cursor = blogCollection.find({});
-            const blogs = await cursor.toArray();
-            res.json(blogs);
+            const page = req.query.page;
+            const size = parseInt(req.query.size);
+            let blogs;
+            const count = await cursor.count();
+            console.log(page, size, count);
+            if (page) {
+                blogs = await cursor.skip(page * size).limit(size).toArray();
+            }
+            else {
+                blogs = await cursor.toArray();
+            }
+
+            res.send({
+                count,
+                blogs
+            });
+        });
+
+        //get blogs for admin
+        app.get('/blogs/admin', async (req, res) => {
+            const blogs = blogCollection.find({});
+            const result = await blogs.toArray();
+            res.json(result);
         });
 
         //Get SIngle Blog
